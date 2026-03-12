@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>High Flyer - Auto Loop</title>
+    <title>High Flyer - Balance Fixed</title>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -13,10 +13,10 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect } = React;
 
         function HighFlyerGame() {
-            const [gameState, setGameState] = useState('IDLE'); // IDLE, FLYING, CRASHED, STARTING
+            const [gameState, setGameState] = useState('STARTING'); // STARTING, FLYING, CRASHED
             const [multiplier, setMultiplier] = useState(1.00);
             const [crashPoint, setCrashPoint] = useState(0);
             const [balance, setBalance] = useState(1000.00);
@@ -27,27 +27,25 @@
             const [countdown, setCountdown] = useState(5);
             const [hasBetThisRound, setHasBetThisRound] = useState(false);
 
-            const startFlight = () => {
-                const currentBet = Number(betAmount);
-                const currentBalance = Number(balance);
-
-                // Sadece bahis yapılmışsa bakiyeden düş
-                if (hasBetThisRound) {
-                    if (currentBalance < currentBet) {
-                        alert("Yetersiz bakiye! Bahis yapılmadan tur başlıyor.");
-                        setHasBetThisRound(false);
-                    } else {
-                        setBalance(prev => Number(prev) - currentBet);
-                    }
+            // BAHİS YAPMA FONKSİYONU (TIKLADIĞIN AN PARAYI DÜŞER)
+            const handlePlaceBet = () => {
+                const b = Number(balance);
+                const a = Number(betAmount);
+                if (b >= a) {
+                    setBalance(b - a);
+                    setHasBetThisRound(true);
+                } else {
+                    alert("Yetersiz Bakiye!");
                 }
+            };
 
+            const startFlight = () => {
                 setGameState('FLYING');
                 setMultiplier(1.00);
                 setIsCashedOut(false);
                 setWinAmount(0);
-                
                 const crash = Math.floor((0.98 / (1 - Math.random())) * 100) / 100;
-                setCrashPoint(Math.min(Math.max(crash, 1.01), 100));
+                setCrashPoint(Math.max(crash, 1.05));
             };
 
             const cashOut = () => {
@@ -58,14 +56,8 @@
                 setIsCashedOut(true);
             };
 
-            // Oyun Döngüsü ve Geri Sayım Yönetimi
             useEffect(() => {
                 let timer;
-                if (gameState === 'IDLE' || gameState === 'CRASHED') {
-                    setCountdown(5);
-                    setGameState('STARTING');
-                }
-
                 if (gameState === 'STARTING') {
                     timer = setInterval(() => {
                         setCountdown(prev => {
@@ -77,17 +69,19 @@
                             return prev - 1;
                         });
                     }, 1000);
-                }
-
-                if (gameState === 'FLYING') {
+                } else if (gameState === 'FLYING') {
                     timer = setInterval(() => {
                         setMultiplier(prev => {
-                            const next = prev + (prev * 0.008) + 0.01; 
+                            const next = prev + (prev * 0.009) + 0.01;
                             if (next >= crashPoint) {
                                 clearInterval(timer);
                                 setGameState('CRASHED');
                                 setHistory(h => [crashPoint.toFixed(2), ...h].slice(0, 8));
-                                setHasBetThisRound(false); // Bahis sıfırla
+                                setTimeout(() => {
+                                    setHasBetThisRound(false);
+                                    setGameState('STARTING');
+                                    setCountdown(5);
+                                }, 2000); // Patladıktan 2 sn sonra geri sayım başlasın
                                 return crashPoint;
                             }
                             return next;
@@ -98,60 +92,57 @@
             }, [gameState, crashPoint]);
 
             return (
-                <div className="min-h-screen flex flex-col items-center justify-center p-4 font-sans">
+                <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#030712]">
                     <div className="w-full max-w-md bg-[#111827] p-6 rounded-[2.5rem] shadow-2xl border border-gray-800">
                         
                         <div className="flex justify-between items-center mb-6">
-                            <div className="bg-black/40 px-5 py-2 rounded-2xl border border-green-500/30">
-                                <span className="text-green-400 font-black text-xl">{Number(balance).toFixed(2)} ₺</span>
+                            <div className="bg-black/60 px-5 py-2 rounded-2xl border border-green-500/40">
+                                <span className="text-green-400 font-black text-2xl tabular-nums">{Number(balance).toFixed(2)} ₺</span>
                             </div>
-                            <div className="flex gap-1">
+                            <div className="flex gap-1 overflow-hidden">
                                 {history.map((h, i) => (
-                                    <span key={i} className={`text-[10px] px-2 py-1 rounded font-bold ${Number(h) > 2 ? 'bg-purple-600' : 'bg-gray-800 text-gray-400'}`}>{h}x</span>
+                                    <span key={i} className="text-[10px] bg-gray-800 px-2 py-1 rounded text-gray-400 font-bold">{h}x</span>
                                 ))}
                             </div>
                         </div>
                         
-                        <div className="relative h-64 bg-black rounded-3xl mb-6 flex items-center justify-center border border-gray-800 overflow-hidden shadow-inner">
+                        <div className="relative h-64 bg-black rounded-3xl mb-6 flex items-center justify-center border border-gray-800 overflow-hidden">
                             {gameState === 'STARTING' ? (
                                 <div className="text-center">
-                                    <div className="text-gray-500 uppercase text-sm font-bold mb-2">Sıradaki Tur Başlıyor</div>
-                                    <div className="text-7xl font-black text-yellow-500 animate-pulse">{countdown}</div>
+                                    <div className="text-gray-500 uppercase text-xs font-bold mb-1 tracking-widest">Sıradaki Tur</div>
+                                    <div className="text-8xl font-black text-yellow-500">{countdown}</div>
                                 </div>
                             ) : (
                                 <div className={`text-7xl font-black tabular-nums transition-all ${gameState === 'CRASHED' ? 'text-red-600 scale-90' : isCashedOut ? 'text-green-500' : 'text-white'}`}>
                                     {multiplier.toFixed(2)}x
                                 </div>
                             )}
-                            
-                            {gameState === 'CRASHED' && (
-                                <div className="absolute top-4 bg-red-600 px-4 py-1 rounded-full text-xs font-bold uppercase">PATLADI!</div>
-                            )}
+                            {gameState === 'CRASHED' && <div className="absolute top-4 bg-red-600 px-6 py-1 rounded-full text-xs font-bold uppercase animate-bounce">PATLADI!</div>}
                         </div>
 
                         {isCashedOut && (
-                            <div className="bg-green-500/20 text-green-400 p-3 rounded-2xl mb-4 text-center font-black border border-green-500/20">
+                            <div className="bg-green-500/20 text-green-400 p-3 rounded-2xl mb-4 text-center font-black border border-green-500/40 animate-pulse">
                                 + {winAmount.toFixed(2)} ₺ KAZANDIN!
                             </div>
                         )}
 
                         <div className="grid grid-cols-2 gap-4 mb-4">
                             <div className="flex items-center justify-between bg-gray-900 p-2 rounded-2xl border border-gray-800">
-                                <button onClick={() => setBetAmount(prev => Math.max(10, prev - 10))} className="w-10 h-10 bg-gray-800 rounded-xl text-2xl font-bold">-</button>
+                                <button onClick={() => setBetAmount(prev => Math.max(10, prev - 10))} className="w-10 h-10 bg-gray-800 rounded-xl text-2xl font-bold active:scale-90">-</button>
                                 <span className="text-xl font-black">{betAmount}</span>
-                                <button onClick={() => setBetAmount(prev => prev + 10)} className="w-10 h-10 bg-gray-800 rounded-xl text-2xl font-bold">+</button>
+                                <button onClick={() => setBetAmount(prev => prev + 10)} className="w-10 h-10 bg-gray-800 rounded-xl text-2xl font-bold active:scale-90">+</button>
                             </div>
                             <div className="flex gap-2">
-                                <button onClick={() => setBetAmount(50)} className="flex-1 bg-gray-800 rounded-xl text-xs font-bold">50</button>
-                                <button onClick={() => setBetAmount(100)} className="flex-1 bg-gray-800 rounded-xl text-xs font-bold">100</button>
+                                <button onClick={() => setBetAmount(50)} className="flex-1 bg-gray-800 rounded-xl text-sm font-bold active:bg-gray-700">50</button>
+                                <button onClick={() => setBetAmount(100)} className="flex-1 bg-gray-800 rounded-xl text-sm font-bold active:bg-gray-700">100</button>
                             </div>
                         </div>
 
                         {gameState === 'STARTING' ? (
                             <button 
-                                onClick={() => setHasBetThisRound(true)} 
+                                onClick={handlePlaceBet} 
                                 disabled={hasBetThisRound}
-                                className={`w-full py-6 rounded-3xl font-black text-3xl transition-all uppercase ${hasBetThisRound ? 'bg-orange-600 text-white animate-pulse' : 'bg-red-600 text-white active:scale-95'}`}
+                                className={`w-full py-6 rounded-3xl font-black text-3xl transition-all uppercase ${hasBetThisRound ? 'bg-orange-600 text-white animate-pulse' : 'bg-red-600 hover:bg-red-700 text-white active:scale-95 shadow-lg shadow-red-900/30'}`}
                             >
                                 {hasBetThisRound ? 'Bahis Alındı!' : 'Bahis Yap'}
                             </button>
@@ -159,9 +150,9 @@
                             <button 
                                 onClick={cashOut} 
                                 disabled={isCashedOut || !hasBetThisRound || gameState !== 'FLYING'} 
-                                className={`w-full py-6 rounded-3xl font-black text-3xl transition-all uppercase ${(!hasBetThisRound || isCashedOut) ? 'bg-gray-700 text-gray-500' : 'bg-green-500 text-black active:scale-95'}`}
+                                className={`w-full py-6 rounded-3xl font-black text-3xl transition-all uppercase ${(!hasBetThisRound || isCashedOut) ? 'bg-gray-800 text-gray-600' : 'bg-green-500 hover:bg-green-600 text-black active:scale-95 shadow-lg shadow-green-900/30'}`}
                             >
-                                {isCashedOut ? 'Nakit Çekildi' : !hasBetThisRound ? 'Bekleniyor...' : 'Nakit Çek'}
+                                {isCashedOut ? 'Nakit Çekildi' : !hasBetThisRound ? 'İzleniyor...' : 'Nakit Çek'}
                             </button>
                         )}
                     </div>
