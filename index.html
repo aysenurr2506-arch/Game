@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>High Flyer Game</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        function PlaneIcon({ className }) {
+            return (
+                <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+                    <path d="M21,16V14L13,9V3.5A1.5,1.5 0 0,0 11.5,2A1.5,1.5 0 0,0 10,3.5V9L2,14V16L10,13.5V19L8,20.5V22L11.5,21L15,22V20.5L13,19V13.5L21,16Z" />
+                </svg>
+            );
+        }
+
+        function HighFlyerGame() {
+            const [gameState, setGameState] = useState('IDLE');
+            const [multiplier, setMultiplier] = useState(1.00);
+            const [crashPoint, setCrashPoint] = useState(0);
+            const [balance, setBalance] = useState(1000);
+            const [betAmount, setBetAmount] = useState(10);
+            const [history, setHistory] = useState([]);
+            const [isCashedOut, setIsCashedOut] = useState(false);
+
+            const startGame = () => {
+                if (balance < betAmount) return alert("Yetersiz bakiye!");
+                setBalance(prev => prev - betAmount);
+                setGameState('FLYING');
+                setMultiplier(1.00);
+                setIsCashedOut(false);
+                const crash = Math.floor((0.99 / (1 - Math.random())) * 100) / 100;
+                setCrashPoint(Math.min(Math.max(crash, 1.01), 50));
+            };
+
+            const cashOut = () => {
+                if (gameState !== 'FLYING' || isCashedOut) return;
+                setBalance(prev => prev + (betAmount * multiplier));
+                setIsCashedOut(true);
+                setGameState('CRASHED');
+            };
+
+            useEffect(() => {
+                let interval;
+                if (gameState === 'FLYING') {
+                    interval = setInterval(() => {
+                        setMultiplier(prev => {
+                            const next = prev + 0.01;
+                            if (next >= crashPoint) {
+                                clearInterval(interval);
+                                setGameState('CRASHED');
+                                setHistory(h => [crashPoint, ...h].slice(0, 5));
+                                return crashPoint;
+                            }
+                            return next;
+                        });
+                    }, 50);
+                }
+                return () => clearInterval(interval);
+            }, [gameState, crashPoint]);
+
+            return (
+                <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-4 font-sans">
+                    <div className="w-full max-w-md bg-gray-800 p-6 rounded-2xl shadow-2xl border border-gray-700">
+                        <div className="flex justify-between mb-4">
+                            <span className="text-green-400 font-bold">Bakiye: {balance.toFixed(2)} ₺</span>
+                            <div className="flex gap-1">
+                                {history.map((h, i) => <span key={i} className="text-xs bg-gray-700 px-2 py-1 rounded">{h}x</span>)}
+                            </div>
+                        </div>
+                        
+                        <div className="relative h-64 bg-gray-900 rounded-xl mb-6 overflow-hidden flex items-center justify-center border border-gray-700">
+                            <div className={`text-5xl font-black ${gameState === 'CRASHED' && !isCashedOut ? 'text-red-500' : 'text-white'}`}>
+                                {multiplier.toFixed(2)}x
+                            </div>
+                            {gameState === 'FLYING' && (
+                                <PlaneIcon className="absolute w-12 h-12 text-red-500 animate-bounce" style={{bottom: '20%', right: '20%'}} />
+                            )}
+                        </div>
+
+                        <input 
+                            type="number" 
+                            value={betAmount} 
+                            onChange={(e) => setBetAmount(Number(e.target.value))}
+                            className="w-full bg-gray-700 p-3 rounded-lg mb-4 outline-none border border-gray-600"
+                            disabled={gameState === 'FLYING'}
+                        />
+
+                        {gameState !== 'FLYING' ? (
+                            <button onClick={startGame} className="w-full bg-green-600 hover:bg-green-700 py-4 rounded-xl font-bold text-xl">BAŞLA</button>
+                        ) : (
+                            <button onClick={cashOut} className="w-full bg-yellow-500 hover:bg-yellow-600 py-4 rounded-xl font-bold text-xl text-black">NAKİT ÇEK</button>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<HighFlyerGame />);
+    </script>
+</body>
+</html>
